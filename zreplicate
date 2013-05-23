@@ -345,7 +345,7 @@ def optimize(operation_schedule):
     return operation_schedule
 
 def cleanup_destination():
-    print "Cleaning up snapshots on destination"
+    verbose_stderr("Cleaning up snapshots on destination")
     src_snaps = source_dataset.get_snapshots()
     dest_snaps = destination_dataset.get_snapshots()
 
@@ -353,8 +353,8 @@ def cleanup_destination():
 
     for j in junk:
         jdsnap = destination_dataset.get_snapshot(j)
-        print "Deleting snapshot on destination: %s" % jdsnap.get_path()
-        print dst_conn.destroy(jdsnap.get_path())
+        verbose_stderr("Deleting snapshot on destination: %s" % jdsnap.get_path())
+        verbose_stderr("Result %s" % dst_conn.destroy(jdsnap.get_path()))
 
 
 optimized_operation_schedule = optimize(operation_schedule)
