@@ -149,11 +149,11 @@ class Dataset:
             c, Snapshot) and flt(c)]
         return children
 
-    def get_snapshot(self, name):
-        children = [c for c in self.get_snapshots() if c.name == name]
+    def get_snapshot(self, snap):
+        children = [c for c in self.get_snapshots() if c.name == snap.name]
         assert len(children) < 2
         if not children:
-            raise KeyError(name)
+            raise KeyError(snap)
         return children[0]
 
     def lookup(self, name):  # FINISH THIS
