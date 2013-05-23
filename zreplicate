@@ -344,6 +344,19 @@ def optimize(operation_schedule):
     operation_schedule = pass3(operation_schedule)
     return operation_schedule
 
+def cleanup_destination():
+    print "Cleaning up snapshots on destination"
+    src_snaps = source_dataset.get_snapshots()
+    dest_snaps = destination_dataset.get_snapshots()
+
+    junk = set([n.name for n in dest_snaps]) - set([n.name for n in src_snaps])
+
+    for j in junk:
+        jdsnap = destination_dataset.get_snapshot(j)
+        print "Deleting snapshot on destination: %s" % jdsnap.get_path()
+        print dst_conn.destroy(jdsnap.get_path())
+
+
 optimized_operation_schedule = optimize(operation_schedule)
 
 send_opts = ["-R"]
@@ -363,6 +376,12 @@ if opts.verbose:
 # subprocess.Popen = mypopen
 
 verbose_stderr("=================================")
+
+# Clean that up snapshots on destination not found on source.  This is a bug in zfs/send receive where it cannot destroy or rename on the destination."
+cleanup_destination()
+
+verbose_stderr("=================================")
+
 for op, src, dst, srcs, dsts in optimized_operation_schedule:
     # assert 0, (op,src,dst,srcs,dsts)
 
