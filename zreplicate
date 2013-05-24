@@ -344,17 +344,64 @@ def optimize(operation_schedule):
     operation_schedule = pass3(operation_schedule)
     return operation_schedule
 
-def cleanup_destination():
-    verbose_stderr("Cleaning up snapshots on destination")
-    src_snaps = source_dataset.get_snapshots()
-    dest_snaps = destination_dataset.get_snapshots()
+def recursive_cleanup(s, d):
+    all_snapshots = []
 
-    junk = set([n.name for n in dest_snaps]) - set([n.name for n in src_snaps])
+    if src_conn:
+        all_snapshots.extend(s.get_snapshots())
+    if dst_conn:
+        all_snapshots.extend(d.get_snapshots())
+
+    all_snapshots = [y[1] for y in chronosorted([(
+        x.get_creation(), x.name) for x in all_snapshots])]
+
+    sched = []
+
+    snapshot_pairs = []
+    for snap in all_snapshots:
+        try:
+            ssnap = s.get_snapshot(snap)
+        except (KeyError, AttributeError):
+            ssnap = None
+        try:
+            dsnap = d.get_snapshot(snap)
+        except (KeyError, AttributeError):
+            dsnap = None
+        # if the source snapshot exists and is not already in the table of snapshots
+        # then pair it up with its destination snapshot (if it exists) or None
+        # and add it to the table of snapshots
+        if ssnap and not snap in [x[0].name for x in snapshot_pairs]:
+            snapshot_pairs.append((ssnap, dsnap))
+
+    found_common_pair = False
+    for idx, (m, n) in enumerate(snapshot_pairs):
+        if m and n and m.name == n.name:
+            found_common_pair = idx
+
+    if found_common_pair:
+        print "Found common pair:"
+        print snapshot_pairs[found_common_pair]
+    else:
+        print "No common pair.  Need to do full sync."
+
+    src_snaps = s.get_snapshots()
+    dest_snaps = d.get_snapshots()
+
+    junk = set([n.name for n in dest_snaps]) - set(
+        [n.name for n in src_snaps])
 
     for j in junk:
-        jdsnap = destination_dataset.get_snapshot(j)
+        jdsnap = d.get_snapshot(j)
         verbose_stderr("Deleting snapshot on destination: %s" % jdsnap.get_path())
-        verbose_stderr("Result %s" % dst_conn.destroy(jdsnap.get_path()))
+        #verbose_stderr("Result %s" % dst_conn.destroy(jdsnap.get_path()))
+
+    # now let's apply the same process to the children
+    for c in [x for x in s.children if not isinstance(x, Snapshot)]:
+        try:
+            cd = d.get_child(c.name)
+        except (KeyError, AttributeError):
+            cd = None
+        recursive_cleanup(c, cd)
 
 
 optimized_operation_schedule = optimize(operation_schedule)
@@ -378,7 +425,9 @@ if opts.verbose:
 verbose_stderr("=================================")
 
 # Clean that up snapshots on destination not found on source.  This is a bug in zfs/send receive where it cannot destroy or rename on the destination."
-cleanup_destination()
+verbose_stderr("Cleaning up snapshots on destination")
+recursive_cleanup(source_dataset, destination_dataset)
+verbose_stderr("Cleaning up snapshots on destination")
 
 verbose_stderr("=================================")
 
