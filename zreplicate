@@ -387,6 +387,8 @@ def recursive_cleanup(s, d):
     else:
         print "No common pair.  Need to do full sync."
 
+    src_snaps = []
+    dest_snaps = []
     if s:
         src_snaps = s.get_snapshots()
     if d:
